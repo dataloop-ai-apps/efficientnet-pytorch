@@ -9,9 +9,14 @@ codebase: dl.GitCodebase = dl.GitCodebase(git_url='https://github.com/dataloop-a
                                           git_tag='1.0')
 
 metadata = dl.Package.get_ml_metadata(cls=Adapter,
-                                      default_configuration={'model_name': 'b0'},
+                                      default_configuration={'model_name': 'b0','no_classes': 100},
                                       output_type=dl.AnnotationType.CLASSIFICATION
                                       )
+with open('labels_map.txt') as f:
+    data = f.read()
+js = json.loads(data)
+imagenet_labels = list(js.values())
+
 module = dl.PackageModule.from_entry_point(entry_point='model_adapter.py')
 
 package = project.packages.push(package_name='efficientnet_pytorch',
@@ -33,7 +38,7 @@ model = package.models.create(model_name='efficientnet_pytorch',
                           tags=['pretrained', 'efficientnet', 'pytorch'],
                         configuration={"model_name": "b0", "no_classes": 10},
                           dataset_id=None,
-                          project_id=package.project.id
+                          project_id=package.project.id,labels=imagenet_labels
                           )
 
 model.status = 'trained'
