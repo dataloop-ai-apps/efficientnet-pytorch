@@ -6,10 +6,10 @@ from efficientnet_pytorch import EfficientNet
                               description='Model Adapter for my model',
                               init_inputs={'model_entity': dl.Model})
 class Adapter(dl.BaseModelAdapter):
-    def load(self, config, **kwargs):
+    def load(self, **kwargs):
         print('loading a model')
-        self.model = EfficientNet.from_pretrained('efficientnet-' + config['model_name'],
-                                                  num_classes=config['no_classes'])
+        self.model = EfficientNet.from_pretrained('efficientnet-' + self.configuration['model_name'],
+                                                  num_classes=self.configuration['no_classes'])
         self.model.eval()
 
     def predict(self, batch, **kwargs):
