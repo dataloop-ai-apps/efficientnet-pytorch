@@ -18,16 +18,16 @@ logger = logging.getLogger('efficientnet-pytorch')
 @dl.Package.decorators.module(name='model-adapter',
                               description='Model Adapter for my model',
                               init_inputs={'model_entity': dl.Model})
-class ModelAdapter(dl.BaseModelAdapter):
-    def __init__(self, model_entity=None):
-        if not isinstance(model_entity, dl.Model):
-            if isinstance(model_entity, str):
-                model_entity = dl.models.get(model_id=model_entity)
-            if isinstance(model_entity, dict) and "model_id" in model_entity:
-                model_entity = dl.models.get(model_id=model_entity["model_id"])
-                # TODO: INIT MODEL
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        super(ModelAdapter, self).__init__(model_entity=model_entity)
+class EfficientnetModel(dl.BaseModelAdapter):
+    # def __init__(self, model_entity=None):
+    #     if not isinstance(model_entity, dl.Model):
+    #         if isinstance(model_entity, str):
+    #             model_entity = dl.models.get(model_id=model_entity)
+    #         if isinstance(model_entity, dict) and "model_id" in model_entity:
+    #             model_entity = dl.models.get(model_id=model_entity["model_id"])
+    #             # TODO: INIT MODEL
+    #     self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    #     super(EfficientnetModel, self).__init__(model_entity=model_entity)
 
     def load(self, local_path: str, **kwargs):
         # TODO: LOAD MODEL
@@ -39,6 +39,7 @@ class ModelAdapter(dl.BaseModelAdapter):
             logger.warning(f'Weights path ({weights_filepath}) not found! loading default model weights')
             weights_filepath = weights_filename
 
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = EfficientNet.from_pretrained(model_name='efficientnet-' + self.configuration['model_name'],
                                                   num_classes=output_size,
                                                   weights_path=weights_filepath).to(self.device)
@@ -73,7 +74,7 @@ class ModelAdapter(dl.BaseModelAdapter):
         ######################
         # Create Dataloaders #
         ######################
-        dataloader_option = self.configuration.get("dataloader_option", "custom")
+        dataloader_option = self.configuration.get("dataloader_option", "dataloop")
         dataloaders = self.get_dataloaders(data_path=data_path, dataloader_option=dataloader_option)
 
         # TODO: TRAIN MODEL
@@ -107,7 +108,6 @@ class ModelAdapter(dl.BaseModelAdapter):
 
     def predict(self, batch: np.ndarray, **kwargs):
         # TODO: PREDICT MODEL
-        input_size = self.configuration.get("input_size", 28)
         batch_predictions = efficientnet_model.predict(model=self.model, device=self.device,
                                                        batch=batch)
         batch_annotations = list()
@@ -210,8 +210,7 @@ class ModelAdapter(dl.BaseModelAdapter):
 
                 return image, label
 
-        input_size = self.configuration.get("input_size", 28)
-        batch_size = self.configuration.get("batch_size", 16)
+        batch_size = self.configuration.get("batch_size", 64)
         data_transforms = efficientnet_model.get_data_transforms()
         train_dataset = CustomDataset(
             data_list=train_image_data,
@@ -231,7 +230,7 @@ class ModelAdapter(dl.BaseModelAdapter):
         return dataloaders
 
     def dataloop_dataloader(self, data_path: str):
-        batch_size = self.configuration.get("batch_size", 16)
+        batch_size = self.configuration.get("batch_size", 64)
         data_transforms = efficientnet_model.get_data_transforms()
 
         train_dataset = DatasetGeneratorTorch(
@@ -266,7 +265,7 @@ class ModelAdapter(dl.BaseModelAdapter):
         }
         return dataloaders
 
-    def get_dataloaders(self, data_path, dataloader_option: str = "custom"):
+    def get_dataloaders(self, data_path, dataloader_option: str = "dataloop"):
         dataloader_options = {
             "custom": self.custom_dataloaders,
             "dataloop": self.dataloop_dataloader
@@ -286,9 +285,10 @@ def package_creation(project: dl.Project):
 
     # Default Hyper Parameters
     default_configuration = {
+        "model_name": "b0",
         "weights_filename": "model.pth",
-        "dataloader_option": "custom",
-        "batch_size": 16,
+        "dataloader_option": "dataloop",
+        "batch_size": 64,
         "hyper_parameters": {
             "num_epochs": 50,
             "optimizer_lr": 0.001
@@ -311,7 +311,7 @@ def package_creation(project: dl.Project):
 
     # Package Metadata
     metadata = dl.Package.get_ml_metadata(
-        cls=ModelAdapter,
+        cls=EfficientnetModel,
         default_configuration=default_configuration,
         output_type=dl.AnnotationType.CLASSIFICATION
     )
@@ -363,12 +363,11 @@ def model_creation(model_name: str, package: dl.Package, project: dl.Project):
     # Hyper Parameters
     configuration = {
         "weights_filename": "model.pth",
-        "dataloader_option": "custom",
-        "batch_size": 16,
-        "input_size": 28,
+        "dataloader_option": "dataloop",
+        "batch_size": 64,
         "hyper_parameters": {
             "num_epochs": 50,
-            "optimizer_lr": 0.01
+            "optimizer_lr": 0.001
         }
     }
 
@@ -401,9 +400,9 @@ def main():
     package_creation(project=project)
 
     # Model Creation
-    # package = project.packages.get(package_name='cnn')
-    # model_name = "cnn_model"
-    # model_creation(model_name=model_name, package=package, project=project)
+    package = project.packages.get(package_name='efficientnet-pytorch')
+    model_name = "efficientnet"
+    model_creation(model_name=model_name, package=package, project=project)
 
 
 if __name__ == "__main__":
