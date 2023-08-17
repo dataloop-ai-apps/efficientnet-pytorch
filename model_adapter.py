@@ -5,7 +5,7 @@ from efficientnet_pytorch import EfficientNet
 @dl.Package.decorators.module(name='model-adapter',
                               description='Model Adapter for my model',
                               init_inputs={'model_entity': dl.Model})
-class Adapter(dl.BaseModelAdapter):
+class Adapter:
     def load(self, **kwargs):
         print('loading a model')
         self.model = EfficientNet.from_pretrained('efficientnet-' + self.configuration['model_name'],
