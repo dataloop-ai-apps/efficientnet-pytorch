@@ -19,7 +19,6 @@ if dl.token_expired():
     dl.login()
 
 
-
 def custom_dataloaders(path: str, batch_size=64):
     def get_image_filepaths(directory):
         image_filepaths = list()
@@ -39,26 +38,26 @@ def custom_dataloaders(path: str, batch_size=64):
 
         return json_filepaths
 
-    def convert_image_filepaths_to_arrays(image_filepaths):
-        image_list = list()
-        for image_filepath in image_filepaths:
-            image = Image.open(fp=image_filepath)
-            image_array = np.array(image)
-            image_array = image_array.astype(float)
-            image_list.append(image_array)
-            image.close()
+    def convert_image_filepath_to_array(image_filepath):
+        # image_list = list()
+        # for image_filepath in image_filepaths:
+        image = Image.open(fp=image_filepath)
+        image_array = np.array(image)
+        image_array = image_array.astype(float)
+        # image_list.append(image_array)
+        image.close()
 
-        return image_list
+        return image_array
 
-    def convert_json_filepaths_to_labels(json_filepaths):
-        label_list = list()
-        for json_filepath in json_filepaths:
-            json_file = open(file=json_filepath, mode="r")
-            json_data = json.load(fp=json_file)
-            label = int(json_data["annotations"][0]["label"])
-            label_list.append(label)
+    def convert_json_filepath_to_label(json_filepath):
+        # label_list = list()
+        # for json_filepath in json_filepaths:
+        json_file = open(file=json_filepath, mode="r")
+        json_data = json.load(fp=json_file)
+        label = int(json_data["annotations"][0]["label"])
+        # label_list.append(label)
 
-        return label_list
+        return label
 
     items = os.path.join(path, "items")
     j_son = os.path.join(path, "json")
@@ -85,15 +84,17 @@ def custom_dataloaders(path: str, batch_size=64):
     valid_json_files.sort(key=lambda x: sort_regex(x))
 
     # Extracting data
-    train_image_data = convert_image_filepaths_to_arrays(image_filepaths=train_image_filepaths)
-    train_image_labels = convert_json_filepaths_to_labels(json_filepaths=train_json_files)
-    valid_image_data = convert_image_filepaths_to_arrays(image_filepaths=valid_image_filepaths)
-    valid_image_labels = convert_json_filepaths_to_labels(json_filepaths=valid_json_files)
+    # train_image_data = convert_image_filepaths_to_arrays(image_filepaths=train_image_filepaths)
+    # train_image_labels = convert_json_filepaths_to_labels(json_filepaths=train_json_files)
+    # valid_image_data = convert_image_filepaths_to_arrays(image_filepaths=valid_image_filepaths)
+    # valid_image_labels = convert_json_filepaths_to_labels(json_filepaths=valid_json_files)
 
     # Custom Dataset Creation
     class CustomDataset(Dataset):
         def __init__(self, data_list, labels_list, transforms_list):
             self.dataset = [(data, label) for data, label in zip(data_list, labels_list)]
+            self.image_filepaths = data_list
+            self.json_filepaths = labels_list
             self.length = len(self.dataset)
             self.transforms = transforms_list
 
@@ -101,7 +102,9 @@ def custom_dataloaders(path: str, batch_size=64):
             return self.length
 
         def __getitem__(self, idx):
-            image, label = self.dataset[idx]
+            image = convert_image_filepath_to_array(self.image_filepaths[idx])
+            label = convert_json_filepath_to_label(self.json_filepaths[idx])
+            # image, label = self.dataset[idx]
             for transform in self.transforms:
                 image = transform(image)
 
@@ -109,13 +112,13 @@ def custom_dataloaders(path: str, batch_size=64):
 
     data_transforms = efficientnet_model.get_data_transforms()
     train_dataset = CustomDataset(
-        data_list=train_image_data,
-        labels_list=train_image_labels,
+        data_list=train_image_filepaths,
+        labels_list=train_json_files,
         transforms_list=data_transforms["train"]
     )
     valid_dataset = CustomDataset(
-        data_list=valid_image_data,
-        labels_list=valid_image_labels,
+        data_list=valid_image_filepaths,
+        labels_list=valid_json_files,
         transforms_list=data_transforms["valid"]
     )
 
@@ -298,11 +301,12 @@ def local_testing(model, device, dataloader):
 
 
 def main():
-    project = dl.projects.get(project_name="Abeer N Ofir Project") # Enter your Project Name
+    project = dl.projects.get(project_name="Abeer N Ofir Project")  # Enter your Project Name
 
-    dataset = project.datasets.get(dataset_name="MNIST_Dataset") # Enter Dataset Name
+    dataset = project.datasets.get(dataset_name="MNIST_Dataset")  # Enter Dataset Name
 
-    list = dataset.download(local_path='/Users/saarahabdulla/Documents/efficientnet-pytorch', # Specify local path to download dataset (same path as code)
+    list = dataset.download(local_path='/Users/saarahabdulla/Documents/efficientnet-pytorch',
+                            # Specify local path to download dataset (same path as code)
                             annotation_options=[dl.ViewAnnotationOptions.JSON])
     data_path = os.getcwd()
     hyperparameters = {
@@ -310,9 +314,9 @@ def main():
         "optimizer_lr": 0.001,
         "output_size": 10,
     }
-    dataloaders = custom_dataloaders(path=data_path) # Default batch size is 64
+    dataloaders = custom_dataloaders(path=data_path)  # Default batch size is 64
     output_path = "."
-    model = EfficientNet.from_pretrained(model_name="efficientnet-b0", num_classes=10,in_channels=1,image_size=28) 
+    model = EfficientNet.from_pretrained(model_name="efficientnet-b0", num_classes=10, in_channels=1, image_size=28)
     local_training(model, device='cpu', hyper_parameters=hyperparameters,
                    dataloaders=dataloaders, output_path=output_path)
 
