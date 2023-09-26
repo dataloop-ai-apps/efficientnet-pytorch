@@ -11,6 +11,7 @@ import torch.nn as nn
 from torch.utils.data.sampler import SubsetRandomSampler
 from sklearn.model_selection import train_test_split
 from efficientnet_pytorch import EfficientNet
+from torchvision import transforms
 
 
 ################
@@ -20,20 +21,46 @@ from efficientnet_pytorch import EfficientNet
 # Model init
 
 
-def get_data_transforms():
+def get_augmentation_transformations(augmentations_list):
+    ret = []
+    for aug in augmentations_list:
+        if aug['type'] == 'crop':
+            transform = transforms.RandomCrop(**aug['params'])
+        if aug['type'] == 'resized_crop':
+            transform = transforms.RandomResizedCrop(**aug['params'])
+        elif aug['type'] == 'resize':
+            transform = transforms.Resize(**aug['params'])
+        elif aug['type'] == 'central_crop':
+            transform = transforms.CentralCrop(**aug['params'])
+        elif aug['type'] == 'horiz_flip':
+            transform = transforms.RandomHorizontalFlip()
+        elif aug['type'] == 'vert_flip':
+            transform = transforms.RandomVericalFlip()
+        elif aug['type'] == 'rotation':
+            transform = transforms.RandomRotation(**aug['params'])
+        ret.append(transforms.RandomApply(torch.nn.ModuleList([transform]), p=aug['prob']))
+    return ret
+
+
+def get_data_transforms(img_size=None, train_augmentations=None):
     torch.manual_seed(0)
     np.random.seed(0)
 
     data_transforms = {
+        'train_display': [
+            torchvision.transforms.Compose([
+                torchvision.transforms.ToTensor()
+            ])],
         'train': [
             # torchvision.transforms.Compose(
-            #     [
+            #    [
             #         torchvision.transforms.ToTensor(),
             #         torchvision.transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]), ]
             # )
-            torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
-                                            torchvision.transforms.Normalize((0.5,), (0.5,))
-                                            ])
+            torchvision.transforms.Compose([
+                torchvision.transforms.ToTensor(),
+                torchvision.transforms.Normalize((0.5,), (0.5,))
+            ])
         ],
         'valid': [
             # torchvision.transforms.Compose(
@@ -46,6 +73,11 @@ def get_data_transforms():
                                             ])
         ]
     }
+    if train_augmentations is not None:
+        data_transforms['train'] += get_augmentation_transformations(train_augmentations)
+        data_transforms['train_display'] += get_augmentation_transformations(train_augmentations)
+    data_transforms['train'].append(transforms.Resize((img_size, img_size)))
+    data_transforms['valid'].append(transforms.Resize((img_size, img_size)))
     return data_transforms
 
 
@@ -219,11 +251,11 @@ def get_dataloaders():
 
     # Training Loaders
     train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=batch_size,
-                                               sampler=train_sampler, num_workers=2)
+                                               sampler=train_sampler, num_workers=10)
     validation_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=batch_size,
-                                                    sampler=validation_sampler, num_workers=2)
+                                                    sampler=validation_sampler, num_workers=10)
     test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=batch_size,
-                                              shuffle=True, num_workers=2)
+                                              shuffle=True, num_workers=10)
 
     # Printing Dataset Sizes
     train_set_size = len(train_subset_idx)
