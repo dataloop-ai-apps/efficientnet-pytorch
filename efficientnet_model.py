@@ -167,7 +167,7 @@ def predict(model, device: torch.device, batch: np.ndarray) -> torch.Tensor:
     # Predict images
     img_tensors = [preprocess(img.astype('uint8')) for img in batch]
     batch_tensor = torch.stack(tensors=img_tensors).to(device)
-    batch_output = model(batch_tensor)
+    batch_output = model(batch_tensor)  # noqa: CWE-78 false positive - PyTorch model forward pass, not shell exec
     batch_predictions = nn.functional.softmax(input=batch_output, dim=1)
 
     return batch_predictions
@@ -290,8 +290,8 @@ def local_testing(model, device, dataloader):
             labels = labels.to(device)
 
             outputs = model(inputs)
-            predicts_prob = nn.functional.softmax(input=outputs, dim=1)
-            _, predicts = torch.max(input=predicts_prob, dim=1)
+            predicts_prob = nn.functional.softmax(input=outputs, dim=1)  # noqa: CWE-78 false positive - PyTorch softmax op
+            _, predicts = torch.max(input=predicts_prob, dim=1)  # noqa: CWE-78 false positive - PyTorch tensor op
             # eval labels here numeric (not one-hot)
             correct_predicts = torch.eq(labels, predicts).cpu()
             correct_count += correct_predicts.numpy().sum()
