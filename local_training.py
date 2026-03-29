@@ -286,8 +286,8 @@ def local_testing(model, device, dataloader):
             labels = labels.to(device)
 
             outputs = model(inputs)
-            predicts_prob = nn.functional.softmax(input=outputs, dim=1)
-            _, predicts = torch.max(input=predicts_prob, dim=1)
+            predicts_prob = nn.functional.softmax(input=outputs, dim=1)  # noqa: CWE-78 false positive - PyTorch softmax op
+            _, predicts = torch.max(input=predicts_prob, dim=1)  # noqa: CWE-78 false positive - PyTorch tensor op
             # eval labels here numeric (not one-hot)
             correct_predicts = torch.eq(labels, predicts).cpu()
             correct_count += correct_predicts.numpy().sum()
